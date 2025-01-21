@@ -43,7 +43,7 @@ resource "aws_iam_role" "github_actions_role" {
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" : "sts.amazonaws.com",
-            "token.actions.githubusercontent.com:sub" : "repo:Automate_Cloud_Cleanup:ref:refs/heads/main"
+            "token.actions.githubusercontent.com:sub" : "repo:francdomain/Automate_Cloud_Cleanup:ref:refs/heads/main"
           }
         }
       }
