@@ -3,6 +3,7 @@ name: Cloud Cleanup Scheduler
 on:
   schedule:
     - cron: "0 0 */7 * *" # Run every 7 days
+  workflow_dispatch:
 
 jobs:
   cloud-cleanup:
