@@ -83,7 +83,8 @@ jobs:
 
             Regards,
             GitHub Actions
-          to: recipient@example.com
+          # to: recipient@example.com
+          to: cfrancmail@gmail.com
           from: ${{ secrets.EMAIL_USERNAME }}
           content_type: text/plain
           attachments: reports/cloud_cleanup_report_*.csv
