@@ -52,9 +52,31 @@ resource "aws_iam_role" "github_actions_role" {
 }
 
 # 3. Attach Policies to the Role
-resource "aws_iam_role_policy" "cleanup_policy" {
-  name = "cleanup-policy"
-  role = aws_iam_role.github_actions_role.name
+# resource "aws_iam_role_policy" "cleanup_policy" {
+#   name = "cleanup-policy"
+#   role = aws_iam_role.github_actions_role.name
+
+#   policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [
+#       {
+#         Effect = "Allow",
+#         Action = [
+#           "ec2:DescribeInstances",
+#           "ec2:StopInstances",
+#           "ec2:DescribeVolumes",
+#           "ec2:DeleteVolume",
+#           "s3:PutObject",
+#           "cloudwatch:GetMetricStatistics"
+#         ],
+#         Resource = "*"
+#       }
+#     ]
+#   })
+# }
+
+resource "aws_iam_policy" "cloud_cleanup_policy" {
+  name = "github-actions-cloud-cleanup-policy"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -66,10 +88,15 @@ resource "aws_iam_role_policy" "cleanup_policy" {
           "ec2:StopInstances",
           "ec2:DescribeVolumes",
           "ec2:DeleteVolume",
-          "s3:PutObject"
+          "cloudwatch:GetMetricStatistics"
         ],
         Resource = "*"
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "cloud_cleanup_policy_attachment" {
+  role       = aws_iam_role.github_actions_role.name
+  policy_arn = aws_iam_policy.cloud_cleanup_policy.arn
 }
