@@ -12,18 +12,23 @@ def find_idle_instances(ec2_client, cloudwatch_client):
         Filters=[{'Name': 'instance-state-name', 'Values': ['running']}]
     )
     idle_instances = []
+    instance_reasons = {}
+
     for reservation in instances['Reservations']:
         for instance in reservation['Instances']:
             instance_id = instance['InstanceId']
             # Check if monitoring is disabled
             if 'Monitoring' in instance and instance['Monitoring']['State'] == 'disabled':
                 idle_instances.append(instance_id)
+                instance_reasons[instance_id] = "Monitoring is disabled"
             else:
                 # Check CPU utilization
                 avg_cpu = get_instance_cpu_utilization(cloudwatch_client, instance_id)
                 if avg_cpu < CPU_THRESHOLD:
                     idle_instances.append(instance_id)
-    return idle_instances
+                    instance_reasons[instance_id] = f"Low CPU utilization: {avg_cpu:.2f}%"
+
+    return idle_instances, instance_reasons
 
 def get_instance_cpu_utilization(cloudwatch_client, instance_id):
     """Retrieve average CPU utilization for an instance over the past 7 days."""
@@ -53,12 +58,19 @@ def find_unattached_volumes(ec2_client):
     volumes = ec2_client.describe_volumes(
         Filters=[{'Name': 'status', 'Values': ['available']}]
     )
-    return [volume['VolumeId'] for volume in volumes['Volumes']]
+    unattached_volumes = []
+    volume_reasons = {}
+
+    for volume in volumes['Volumes']:
+        unattached_volumes.append(volume['VolumeId'])
+        volume_reasons[volume['VolumeId']] = "Volume is not attached to any instance."
+
+    return unattached_volumes, volume_reasons
 
 def cleanup_resources(ec2_client, cloudwatch_client, dry_run=True):
     """Identify and optionally clean up resources."""
-    idle_instances = find_idle_instances(ec2_client, cloudwatch_client)
-    unattached_volumes = find_unattached_volumes(ec2_client)
+    idle_instances, instance_reasons = find_idle_instances(ec2_client, cloudwatch_client)
+    unattached_volumes, volume_reasons = find_unattached_volumes(ec2_client)
 
     if not dry_run:
         # Stop idle instances
@@ -69,17 +81,24 @@ def cleanup_resources(ec2_client, cloudwatch_client, dry_run=True):
         for volume in unattached_volumes:
             ec2_client.delete_volume(VolumeId=volume)
 
-    return idle_instances, unattached_volumes
+    return idle_instances, instance_reasons, unattached_volumes, volume_reasons
 
-def generate_report(idle_instances, unattached_volumes):
+def generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons):
     """Generate a CSV report of identified resources."""
     timestamp = datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')
     report_filename = f"cloud_cleanup_report_{timestamp}.csv"
     with open(report_filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Resource Type', 'Resource ID'])
-        writer.writerows([['Idle Instance', instance] for instance in idle_instances])
-        writer.writerows([['Unattached Volume', volume] for volume in unattached_volumes])
+        # Write header
+        writer.writerow(['Resource Type', 'Resource ID', 'Reason'])
+        # Write idle instances with reasons
+        for instance in idle_instances:
+            writer.writerow(['Idle Instance', instance, instance_reasons.get(instance, 'Reason not available')])
+        # Write unattached volumes with reasons
+        for volume in unattached_volumes:
+            writer.writerow(['Unattached Volume', volume, volume_reasons.get(volume, 'Reason not available')])
+
+    print(f"Report generated: {report_filename}")
     return report_filename
 
 def main():
@@ -88,9 +107,9 @@ def main():
     cloudwatch_client = boto3.client('cloudwatch')
     dry_run = os.getenv('DRY_RUN', 'True').lower() == 'true'
 
-    idle_instances, unattached_volumes = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
+    idle_instances, instance_reasons, unattached_volumes, volume_reasons = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
 
-    report_filename = generate_report(idle_instances, unattached_volumes)
+    report_filename = generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons)
     print(f"Report generated: {report_filename}")
 
 if __name__ == "__main__":
