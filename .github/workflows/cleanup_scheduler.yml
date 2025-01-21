@@ -5,6 +5,10 @@ on:
     - cron: "0 0 */7 * *" # Run every 7 days
   workflow_dispatch:
 
+permissions:
+  id-token: write # Required for OIDC authentication
+  contents: read  # Required to fetch repository contents
+
 jobs:
   cloud-cleanup:
     runs-on: ubuntu-latest
@@ -31,6 +35,13 @@ jobs:
 
     - name: Run Cleanup Script
       env:
-        DRY_RUN: "True"
+        DRY_RUN: "True" # Set this to "False" to perform actual cleanup
       run: |
         python cloud_cleanup.py
+
+    - name: Upload Cleanup Report
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: cleanup-report
+        path: cloud_cleanup_report_*.csv
