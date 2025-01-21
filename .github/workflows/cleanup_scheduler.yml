@@ -35,7 +35,7 @@ jobs:
 
     - name: Run Cleanup Script
       env:
-        DRY_RUN: "False" # Set this to "False" to perform actual cleanup
+        DRY_RUN: "True" # Set this to "False" to perform actual cleanup
       run: |
         python cloud_cleanup.py
 
@@ -57,6 +57,11 @@ jobs:
         with:
           name: cleanup-report
           path: reports
+
+      - name: Unzip Report
+        run: |
+          cd reports
+          unzip cleanup-report.zip
 
       # Step 2: Send the email
       - name: Send Email
