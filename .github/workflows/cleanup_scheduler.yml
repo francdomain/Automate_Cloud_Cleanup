@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # Required for OIDC authentication
-  contents: read  # Required to fetch repository contents
+  id-token: write
+  contents: read
 
 jobs:
   cloud-cleanup:
