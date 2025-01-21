@@ -39,19 +39,21 @@ jobs:
       run: |
         python cloud_cleanup.py
 
-    - name: Upload Cleanup Report
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: cleanup-report
-        path: cloud_cleanup_report_*.csv
+    - name: Create Zip of Report
+        run: |
+          zip cleanup-report.zip cloud_cleanup_report_*.csv
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: cleanup-report
+          path: cleanup-report.zip
 
   send-email:
     runs-on: ubuntu-latest
     needs: cloud-cleanup
 
     steps:
-      # Step 1: Download the report artifact
       - name: Download Artifact
         uses: actions/download-artifact@v3
         with:
@@ -63,7 +65,9 @@ jobs:
           cd reports
           unzip cleanup-report.zip
 
-      # Step 2: Send the email
+      - name: List Files in Reports
+        run: ls -l reports
+
       - name: Send Email
         uses: dawidd6/action-send-mail@v3
         with:
@@ -75,12 +79,11 @@ jobs:
           body: |
             Hello,
 
-            Please find attached the Cloud Cleanup Report for your approval.
+            Please find attached the Cloud Cleanup Report for your review.
 
             Regards,
             GitHub Actions
-          # to: recipient@example.com
-          to: cfrancmail@gmail.com
+          to: recipient@example.com
           from: ${{ secrets.EMAIL_USERNAME }}
           content_type: text/plain
           attachments: reports/cloud_cleanup_report_*.csv
