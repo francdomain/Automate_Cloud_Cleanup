@@ -83,8 +83,14 @@ def cleanup_resources(ec2_client, cloudwatch_client, dry_run=True):
 
         # Delete unattached volumes
         for volume in unattached_volumes:
-            ec2_client.delete_volume(VolumeId=volume)
-            volume_actions[volume] = "Volume deleted"
+            try:
+                ec2_client.delete_volume(VolumeId=volume)
+                volume_actions[volume] = "Volume deleted"
+            except ec2_client.exceptions.ClientError as e:
+                if "InvalidVolume.NotFound" in str(e):
+                    volume_actions[volume] = "Volume already deleted"
+                else:
+                    raise e  # Re-raise for unexpected errors
     else:
         # For dry run, no actions are performed
         instance_actions = {instance: "No action (dry run)" for instance in idle_instances}
