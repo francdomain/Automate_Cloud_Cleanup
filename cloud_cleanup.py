@@ -72,31 +72,40 @@ def cleanup_resources(ec2_client, cloudwatch_client, dry_run=True):
     idle_instances, instance_reasons = find_idle_instances(ec2_client, cloudwatch_client)
     unattached_volumes, volume_reasons = find_unattached_volumes(ec2_client)
 
+    instance_actions = {}
+    volume_actions = {}
+
     if not dry_run:
         # Stop idle instances
         for instance in idle_instances:
             ec2_client.stop_instances(InstanceIds=[instance])
+            instance_actions[instance] = "Instance stopped"
 
         # Delete unattached volumes
         for volume in unattached_volumes:
             ec2_client.delete_volume(VolumeId=volume)
+            volume_actions[volume] = "Volume deleted"
+    else:
+        # For dry run, no actions are performed
+        instance_actions = {instance: "No action (dry run)" for instance in idle_instances}
+        volume_actions = {volume: "No action (dry run)" for volume in unattached_volumes}
 
-    return idle_instances, instance_reasons, unattached_volumes, volume_reasons
+    return idle_instances, instance_reasons, instance_actions, unattached_volumes, volume_reasons, volume_actions
 
-def generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons):
-    """Generate a CSV report of identified resources."""
+def generate_report(idle_instances, instance_reasons, instance_actions, unattached_volumes, volume_reasons, volume_actions):
+    """Generate a CSV report of identified resources and actions taken."""
     timestamp = datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')
     report_filename = f"cloud_cleanup_report_{timestamp}.csv"
     with open(report_filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         # Write header
-        writer.writerow(['Resource Type', 'Resource ID', 'Reason'])
-        # Write idle instances with reasons
+        writer.writerow(['Resource Type', 'Resource ID', 'Reason', 'Action Taken'])
+        # Write idle instances with reasons and actions
         for instance in idle_instances:
-            writer.writerow(['Idle Instance', instance, instance_reasons.get(instance, 'Reason not available')])
-        # Write unattached volumes with reasons
+            writer.writerow(['Idle Instance', instance, instance_reasons.get(instance, 'Reason not available'), instance_actions.get(instance, 'Action not available')])
+        # Write unattached volumes with reasons and actions
         for volume in unattached_volumes:
-            writer.writerow(['Unattached Volume', volume, volume_reasons.get(volume, 'Reason not available')])
+            writer.writerow(['Unattached Volume', volume, volume_reasons.get(volume, 'Reason not available'), volume_actions.get(volume, 'Action not available')])
 
     print(f"Report generated: {report_filename}")
     return report_filename
@@ -107,9 +116,11 @@ def main():
     cloudwatch_client = boto3.client('cloudwatch')
     dry_run = os.getenv('DRY_RUN', 'True').lower() == 'true'
 
-    idle_instances, instance_reasons, unattached_volumes, volume_reasons = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
+    (idle_instances, instance_reasons, instance_actions,
+     unattached_volumes, volume_reasons, volume_actions) = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
 
-    report_filename = generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons)
+    report_filename = generate_report(idle_instances, instance_reasons, instance_actions,
+                                       unattached_volumes, volume_reasons, volume_actions)
     print(f"Report generated: {report_filename}")
 
 if __name__ == "__main__":

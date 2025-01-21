@@ -35,7 +35,7 @@ jobs:
 
     - name: Run Cleanup Script
       env:
-        DRY_RUN: "False" # Set this to "False" to perform actual cleanup
+        DRY_RUN: "True" # Set this to "False" to perform actual cleanup
       run: |
         python cloud_cleanup.py
 
