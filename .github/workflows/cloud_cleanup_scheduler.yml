@@ -52,29 +52,28 @@ jobs:
       - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1.23.0
         with:
-          payload: |
-            {
-              "channel": "#random",
-              "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
-              "attachments": [
-                {
-                  "fallback": "Approve or Decline the cleanup.",
-                  "text": "Choose an action:",
-                  "actions": [
-                    {
-                      "type": "button",
-                      "text": "Approve Cleanup",
-                      "url": "https://api.github.com/repos/francdomain/Automate_cloud_cleanup/dispatches",
-                      "style": "primary"
-                    },
-                    {
-                      "type": "button",
-                      "text": "Decline Cleanup",
-                      "url": "https://slack.com" # Redirect for no action
-                    }
-                  ]
-                }
-              ]
-            }
+          payload: '{
+            "channel": "#random",
+            "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
+            "attachments": [
+              {
+                "fallback": "Approve or Decline the cleanup.",
+                "text": "Choose an action:",
+                "actions": [
+                  {
+                    "type": "button",
+                    "text": "Approve Cleanup",
+                    "url": "https://api.github.com/repos/francdomain/Automate_cloud_cleanup/dispatches",
+                    "style": "primary"
+                  },
+                  {
+                    "type": "button",
+                    "text": "Decline Cleanup",
+                    "url": "https://slack.com"
+                  }
+                ]
+              }
+            ]
+          }'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
