@@ -1,0 +1,24 @@
+name: Handle Slack Interactions
+
+on:
+  repository_dispatch:
+    types: [slack-approval]
+
+jobs:
+  process-approval:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Parse Slack Payload
+      run: |
+        echo "Payload: ${{ github.event.client_payload }}"
+        echo "Approval Status: ${{ github.event.client_payload.approval_status }}"
+        if [[ "${{ github.event.client_payload.approval_status }}" == "approved" ]]; then
+          echo "Triggering cleanup approval workflow..."
+          curl -X POST -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.SLACK_GITHUB_TOKEN }}" \
+            https://api.github.com/repos/francdomain/Automate_Cloud_Cleanup/actions/workflows/approve-cleanup.yml/dispatches \
+            -d '{"ref":"main"}'
+        else
+          echo "Approval declined. No action taken."
+        fi

@@ -1,0 +1,80 @@
+name: Cloud Cleanup Scheduler
+
+on:
+  schedule:
+    - cron: "0 0 */7 * *" # Run every 7 days
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  cloud-cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::992382613070:role/github-actions-cleanup-role
+          aws-region: us-east-1
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Cleanup Script (Dry Run)
+        env:
+          DRY_RUN: "True"
+        run: |
+          python cloud_cleanup.py
+
+      - name: Generate Cleanup Report
+        run: |
+          zip cleanup-report.zip cloud_cleanup_report_*.csv
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: cleanup-report
+          path: cleanup-report.zip
+
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "channel": "#random",
+              "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
+              "attachments": [
+                {
+                  "fallback": "Approve or Decline the cleanup.",
+                  "text": "Choose an action:",
+                  "actions": [
+                    {
+                      "type": "button",
+                      "text": "Approve Cleanup",
+                      "url": "https://api.github.com/repos/francdomain/Automate_cloud_cleanup/dispatches",
+                      "style": "primary"
+                    },
+                    {
+                      "type": "button",
+                      "text": "Decline Cleanup",
+                      "url": "https://slack.com" # Redirect for no action
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

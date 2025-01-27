@@ -1,0 +1,59 @@
+name: Approve Cleanup
+
+on:
+  workflow_dispatch: # Manually triggered via Slack approval
+
+jobs:
+  approve-cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::992382613070:role/github-actions-cleanup-role
+          aws-region: us-east-1
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Perform Cleanup
+        run: |
+          python cloud_cleanup.py --dry-run=False # Perform actual cleanup
+
+      - name: Generate Cleanup Report
+        run: |
+          zip cleanup-report.zip cloud_cleanup_report_*.csv
+
+      - name: Upload Cleanup Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: approved-cleanup-report
+          path: cleanup-report.zip
+
+      - name: Notify via Slack
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "channel": "#random",
+              "text": "Cleanup completed and approved. Report uploaded.",
+              "attachments": [
+                {
+                  "text": "The report is attached as an artifact in GitHub Actions.",
+                  "color": "#36a64f"
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
