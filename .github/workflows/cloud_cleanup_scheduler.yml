@@ -58,30 +58,30 @@ jobs:
           echo "Channel: ${{ env.CHANNEL_ID }}"
           echo "Payload: { \"channel\": \"${{ env.CHANNEL_ID }}\", \"text\": \"Dry-run report ready.\" }"
 
-      - name: Send Slack Notification
-        uses: slackapi/slack-github-action@v1.23.0
-        with:
-          payload: |
-            {
-              "channel": "${{ env.CHANNEL_ID }}",
-              "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
-              "attachments": [
-                {
-                  "fallback": "Approve or Decline the cleanup.",
-                  "text": "Choose an action:",
-                  "actions": [
-                    {
-                      "type": "button",
-                      "text": "Approve Cleanup",
-                      "url": "https://api.github.com/repos/francdomain/Automate_cloud_cleanup/dispatches",
-                      "style": "primary"
-                    },
-                    {
-                      "type": "button",
-                      "text": "Decline Cleanup",
-                      "url": "https://slack.com"
-                    }
-                  ]
-                }
-              ]
-            }
+      - name: Send Slack Notification with cURL
+        run: |
+          curl -X POST -H "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "channel": "${{ env.CHANNEL_ID }}",
+            "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
+            "attachments": [
+              {
+                "fallback": "Approve or Decline the cleanup.",
+                "text": "Choose an action:",
+                "actions": [
+                  {
+                    "type": "button",
+                    "text": "Approve Cleanup",
+                    "url": "https://api.github.com/repos/francdomain/Automate_cloud_cleanup/dispatches",
+                    "style": "primary"
+                  },
+                  {
+                    "type": "button",
+                    "text": "Decline Cleanup",
+                    "url": "https://slack.com"
+                  }
+                ]
+              }
+            ]
+          }' https://slack.com/api/chat.postMessage
