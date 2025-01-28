@@ -7,6 +7,10 @@ jobs:
   approve-cleanup:
     runs-on: ubuntu-latest
 
+    env: # Declare environment variables for all steps in this job
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -41,19 +45,17 @@ jobs:
           name: approved-cleanup-report
           path: cleanup-report.zip
 
-      - name: Notify via Slack
-        uses: slackapi/slack-github-action@v1.23.0
-        with:
-          payload: |
-            {
-              "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
-              "text": "Cleanup completed and approved. Report uploaded.",
-              "attachments": [
-                {
-                  "text": "The report is attached as an artifact in GitHub Actions.",
-                  "color": "#36a64f"
-                }
-              ]
-            }
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      - name: Notify via Slack with cURL
+        run: |
+          curl -X POST -H "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "channel": "${{ env.CHANNEL_ID }}",
+            "text": "Cleanup completed and approved. The report has been uploaded as an artifact in GitHub Actions.",
+            "attachments": [
+              {
+                "text": "You can download the cleanup report from the GitHub Actions artifacts.",
+                "color": "#36a64f"
+              }
+            ]
+          }' https://slack.com/api/chat.postMessage
