@@ -49,7 +49,7 @@ jobs:
           name: cleanup-report
           path: cleanup-report.zip
 
-            - name: Send Slack Notification
+      - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1.23.0
         with:
           payload: |
