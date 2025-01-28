@@ -49,12 +49,12 @@ jobs:
           name: cleanup-report
           path: cleanup-report.zip
 
-      - name: Send Slack Notification
+            - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1.23.0
         with:
           payload: |
             {
-              "channel": "{{ secrets.SLACK_CHANNEL_ID }}",
+              "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
               "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
               "attachments": [
                 {
