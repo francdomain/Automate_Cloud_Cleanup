@@ -49,6 +49,11 @@ jobs:
           name: cleanup-report
           path: cleanup-report.zip
 
+      - name: Debug Slack Payload
+        run: |
+          echo "Channel: ${{ secrets.SLACK_CHANNEL_ID }}"
+          echo "Payload: { \"channel\": \"${{ secrets.SLACK_CHANNEL_ID }}\", \"text\": \"Dry-run report ready.\" }"
+
       - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1.23.0
         with:
