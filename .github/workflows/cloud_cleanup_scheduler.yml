@@ -13,6 +13,10 @@ jobs:
   cloud-cleanup:
     runs-on: ubuntu-latest
 
+    env: # Declare environment variables for all steps in this job
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -49,14 +53,10 @@ jobs:
           name: cleanup-report
           path: cleanup-report.zip
 
-      env:
-        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-
       - name: Debug Slack Payload
         run: |
-          echo "Channel: ${{ secrets.SLACK_CHANNEL_ID }}"
-          echo "Payload: { \"channel\": \"${{ secrets.SLACK_CHANNEL_ID }}\", \"text\": \"Dry-run report ready.\" }"
+          echo "Channel: ${{ env.CHANNEL_ID }}"
+          echo "Payload: { \"channel\": \"${{ env.CHANNEL_ID }}\", \"text\": \"Dry-run report ready.\" }"
 
       - name: Send Slack Notification
         uses: slackapi/slack-github-action@v1.23.0
