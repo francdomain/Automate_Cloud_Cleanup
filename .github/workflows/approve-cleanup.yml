@@ -46,7 +46,7 @@ jobs:
         with:
           payload: |
             {
-              "channel": "#random",
+              "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
               "text": "Cleanup completed and approved. Report uploaded.",
               "attachments": [
                 {
