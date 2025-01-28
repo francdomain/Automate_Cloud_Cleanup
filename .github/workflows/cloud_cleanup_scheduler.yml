@@ -54,7 +54,8 @@ jobs:
         with:
           payload: |
             {
-              "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
+              # "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
+              "channel": "C066J2L0YJ3",
               "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
               "attachments": [
                 {
