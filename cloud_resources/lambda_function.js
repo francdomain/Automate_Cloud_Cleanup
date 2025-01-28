@@ -4,7 +4,6 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
 
-    // Handle Slack URL verification
     if (body.type === "url_verification") {
       return {
         statusCode: 200,
@@ -12,35 +11,42 @@ exports.handler = async (event) => {
       };
     }
 
-    // Handle Slack interactive message
     if (body.type === "interactive_message") {
       const action = body.actions[0];
+
       const approvalStatus = action.value === "approve" ? "approved" : "declined";
 
-      await axios.post(
-        `https://api.github.com/repos/${process.env.REPO_OWNER}/${process.env.REPO_NAME}/dispatches`,
-        {
-          event_type: "slack-approval", // Updated to match the workflow event trigger
-          client_payload: {
-            approval_status: approvalStatus, // Include approval status in payload
+      try {
+        await axios.post(
+          `https://api.github.com/repos/${process.env.REPO_OWNER}/${process.env.REPO_NAME}/dispatches`,
+          {
+            event_type: "slack-approval",
+            client_payload: {
+              approval_status: approvalStatus,
+            },
           },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-            "Content-Type": "application/json",
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+              "Content-Type": "application/json",
+            },
           }
-        }
-      );
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          text: approvalStatus === "approved"
-            ? "The cleanup workflow has been approved."
-            : "The cleanup workflow has been declined."
-        }),
-      };
+        );
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            text: `The cleanup workflow has been ${approvalStatus}.`,
+          }),
+        };
+      } catch (error) {
+        console.error("GitHub API Error:", error.response?.data || error.message);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            text: `An error occurred while triggering the workflow: ${error.message}`,
+          }),
+        };
+      }
     }
 
     return {
@@ -48,7 +54,7 @@ exports.handler = async (event) => {
       body: "No action taken.",
     };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error:", error.message);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Internal server error." }),
