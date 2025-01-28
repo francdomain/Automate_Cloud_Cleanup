@@ -8,6 +8,9 @@ jobs:
   process-approval:
     runs-on: ubuntu-latest
 
+    env: # Declare environment variables for all steps in this job
+      SLACK_GITHUB_TOKEN: ${{ secrets.SLACK_GITHUB_TOKEN }}
+
     steps:
     - name: Parse Slack Payload
       run: |
@@ -16,7 +19,7 @@ jobs:
         if [[ "${{ github.event.client_payload.approval_status }}" == "approved" ]]; then
           echo "Triggering cleanup approval workflow..."
           curl -X POST -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.SLACK_GITHUB_TOKEN }}" \
+            -H "Authorization: Bearer ${{ env.SLACK_GITHUB_TOKEN }}" \
             https://api.github.com/repos/francdomain/Automate_Cloud_Cleanup/actions/workflows/approve-cleanup.yml/dispatches \
             -d '{"ref":"main"}'
         else
