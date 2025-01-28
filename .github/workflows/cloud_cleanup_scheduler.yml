@@ -49,6 +49,10 @@ jobs:
           name: cleanup-report
           path: cleanup-report.zip
 
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+
       - name: Debug Slack Payload
         run: |
           echo "Channel: ${{ secrets.SLACK_CHANNEL_ID }}"
@@ -59,7 +63,7 @@ jobs:
         with:
           payload: |
             {
-              "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
+              "channel": "${{ env.CHANNEL_ID }}",
               "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
               "attachments": [
                 {
