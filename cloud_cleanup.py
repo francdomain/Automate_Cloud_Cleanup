@@ -1,10 +1,15 @@
 import boto3
 import csv
 import os
+import json
+import requests
 from datetime import datetime, timedelta
 
 # CPU utilization threshold (percentage)
 CPU_THRESHOLD = 5
+LAMBDA_FUNCTION_NAME = "CloudCleanupLambda"
+AWS_REGION = "us-east-1"
+SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL')
 
 def find_idle_instances(ec2_client, cloudwatch_client):
     """Find running instances that are either idle (monitoring disabled) or underutilized."""
@@ -17,12 +22,10 @@ def find_idle_instances(ec2_client, cloudwatch_client):
     for reservation in instances['Reservations']:
         for instance in reservation['Instances']:
             instance_id = instance['InstanceId']
-            # Check if monitoring is disabled
             if 'Monitoring' in instance and instance['Monitoring']['State'] == 'disabled':
                 idle_instances.append(instance_id)
                 instance_reasons[instance_id] = "Monitoring is disabled"
             else:
-                # Check CPU utilization
                 avg_cpu = get_instance_cpu_utilization(cloudwatch_client, instance_id)
                 if avg_cpu < CPU_THRESHOLD:
                     idle_instances.append(instance_id)
@@ -41,15 +44,14 @@ def get_instance_cpu_utilization(cloudwatch_client, instance_id):
         Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}],
         StartTime=start_time,
         EndTime=now,
-        Period=3600,  # Hourly intervals
+        Period=3600,
         Statistics=['Average']
     )
 
     data_points = response.get('Datapoints', [])
     if not data_points:
-        return 0  # No data indicates low utilization
+        return 0
 
-    # Calculate average CPU utilization
     avg_cpu = sum(dp['Average'] for dp in data_points) / len(data_points)
     return avg_cpu
 
@@ -71,50 +73,58 @@ def cleanup_resources(ec2_client, cloudwatch_client, dry_run=True):
     """Identify and optionally clean up resources."""
     idle_instances, instance_reasons = find_idle_instances(ec2_client, cloudwatch_client)
     unattached_volumes, volume_reasons = find_unattached_volumes(ec2_client)
+    return idle_instances, instance_reasons, unattached_volumes, volume_reasons
 
-    instance_actions = {}
-    volume_actions = {}
-
-    if not dry_run:
-        # Stop idle instances
-        for instance in idle_instances:
-            ec2_client.stop_instances(InstanceIds=[instance])
-            instance_actions[instance] = "Instance stopped"
-
-        # Delete unattached volumes
-        for volume in unattached_volumes:
-            try:
-                ec2_client.delete_volume(VolumeId=volume)
-                volume_actions[volume] = "Volume deleted"
-            except ec2_client.exceptions.ClientError as e:
-                if "InvalidVolume.NotFound" in str(e):
-                    volume_actions[volume] = "Volume already deleted"
-                else:
-                    raise e  # Re-raise for unexpected errors
-    else:
-        # For dry run, no actions are performed
-        instance_actions = {instance: "No action (dry run)" for instance in idle_instances}
-        volume_actions = {volume: "No action (dry run)" for volume in unattached_volumes}
-
-    return idle_instances, instance_reasons, instance_actions, unattached_volumes, volume_reasons, volume_actions
-
-def generate_report(idle_instances, instance_reasons, instance_actions, unattached_volumes, volume_reasons, volume_actions):
-    """Generate a CSV report of identified resources and actions taken."""
+def generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons):
+    """Generate a CSV report of identified resources."""
     timestamp = datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')
     report_filename = f"cloud_cleanup_report_{timestamp}.csv"
     with open(report_filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        # Write header
-        writer.writerow(['Resource Type', 'Resource ID', 'Reason', 'Action Taken'])
-        # Write idle instances with reasons and actions
+        writer.writerow(['Resource Type', 'Resource ID', 'Reason'])
         for instance in idle_instances:
-            writer.writerow(['Idle Instance', instance, instance_reasons.get(instance, 'Reason not available'), instance_actions.get(instance, 'Action not available')])
-        # Write unattached volumes with reasons and actions
+            writer.writerow(['Idle Instance', instance, instance_reasons.get(instance, 'Reason not available')])
         for volume in unattached_volumes:
-            writer.writerow(['Unattached Volume', volume, volume_reasons.get(volume, 'Reason not available'), volume_actions.get(volume, 'Action not available')])
+            writer.writerow(['Unattached Volume', volume, volume_reasons.get(volume, 'Reason not available')])
 
     print(f"Report generated: {report_filename}")
     return report_filename
+
+def trigger_lambda():
+    """Invoke the AWS Lambda function for cleanup."""
+    lambda_client = boto3.client('lambda', region_name=AWS_REGION)
+    response = lambda_client.invoke(
+        FunctionName=LAMBDA_FUNCTION_NAME,
+        InvocationType='Event',
+        Payload=json.dumps({"action": "start_cleanup"})
+    )
+    return response
+
+def send_slack_notification():
+    """Send Slack message with Approve/Decline buttons."""
+    payload = {
+        "text": "Cloud Cleanup dry-run completed. Approve to clean up identified resources.",
+        "attachments": [
+            {
+                "fallback": "Approve or Decline Cleanup.",
+                "text": "Choose an action:",
+                "actions": [
+                    {
+                        "type": "button",
+                        "text": "Approve Cleanup",
+                        "url": "https://slack.com/api/trigger-lambda",
+                        "style": "primary"
+                    },
+                    {
+                        "type": "button",
+                        "text": "Decline Cleanup",
+                        "url": "https://slack.com"
+                    }
+                ]
+            }
+        ]
+    }
+    requests.post(SLACK_WEBHOOK_URL, json=payload)
 
 def main():
     """Main execution logic."""
@@ -122,11 +132,9 @@ def main():
     cloudwatch_client = boto3.client('cloudwatch')
     dry_run = os.getenv('DRY_RUN', 'True').lower() == 'true'
 
-    (idle_instances, instance_reasons, instance_actions,
-     unattached_volumes, volume_reasons, volume_actions) = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
-
-    report_filename = generate_report(idle_instances, instance_reasons, instance_actions,
-                                       unattached_volumes, volume_reasons, volume_actions)
+    idle_instances, instance_reasons, unattached_volumes, volume_reasons = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
+    report_filename = generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons)
+    send_slack_notification()
     print(f"Report generated: {report_filename}")
 
 if __name__ == "__main__":

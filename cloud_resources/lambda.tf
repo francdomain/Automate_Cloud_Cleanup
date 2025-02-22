@@ -1,16 +1,15 @@
 data "archive_file" "lambda_function_zip" {
   type        = "zip"
-  source_file = "${path.module}/lambda_function.js" # For single file
+  source_file = "${path.module}/lambda_function.py" # For single file
   output_path = "${path.module}/lambda_function.zip"
 }
 
 resource "aws_lambda_function" "slack_interaction_handler" {
-  filename      = data.archive_file.lambda_function_zip.output_path
-  function_name = "SlackInteractionHandler"
-  role          = aws_iam_role.lambda_execution_role.arn
-  handler       = "index.handler"
-  runtime       = "nodejs18.x"
-  # source_code_hash = filebase64sha256("lambda_function.zip") # Ensures updates trigger a redeploy
+  filename         = data.archive_file.lambda_function_zip.output_path
+  function_name    = "SlackInteractionHandler"
+  role             = aws_iam_role.lambda_execution_role.arn
+  handler          = "lambda_function.lambda_handler"
+  runtime          = "python3.11"
   source_code_hash = filebase64sha256("${data.archive_file.lambda_function_zip.output_path}") # Ensures updates trigger a redeploy
 
   environment {

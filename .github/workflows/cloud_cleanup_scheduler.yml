@@ -13,9 +13,11 @@ jobs:
   cloud-cleanup:
     runs-on: ubuntu-latest
 
-    env: # Declare environment variables for all steps in this job
+    env:
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
       CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+      LAMBDA_FUNCTION_NAME: "CloudCleanupLambda"
+      AWS_REGION: "us-east-1"
 
     steps:
       - name: Checkout Repository
@@ -24,8 +26,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::992382613070:role/github-actions-cleanup-role
-          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-cleanup-role
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -53,12 +55,7 @@ jobs:
           name: cleanup-report
           path: cleanup-report.zip
 
-      - name: Debug Slack Payload
-        run: |
-          echo "Channel: ${{ env.CHANNEL_ID }}"
-          echo "Payload: { \"channel\": \"${{ env.CHANNEL_ID }}\", \"text\": \"Dry-run report ready.\" }"
-
-      - name: Send Slack Notification with cURL
+      - name: Send Slack Notification with Approval Buttons
         run: |
           curl -X POST -H "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN }}" \
           -H "Content-Type: application/json" \
@@ -73,15 +70,37 @@ jobs:
                   {
                     "type": "button",
                     "text": "Approve Cleanup",
-                    "url": "https://api.github.com/repos/francdomain/Automate_cloud_cleanup/dispatches",
-                    "style": "primary"
+                    "style": "primary",
+                    "value": "approve_cleanup",
+                    "action_id": "approve_cleanup"
                   },
                   {
                     "type": "button",
                     "text": "Decline Cleanup",
-                    "url": "https://slack.com"
+                    "style": "danger",
+                    "value": "decline_cleanup",
+                    "action_id": "decline_cleanup"
                   }
                 ]
               }
             ]
           }' https://slack.com/api/chat.postMessage
+
+  handle-slack-response:
+    runs-on: ubuntu-latest
+    needs: cloud-cleanup
+
+    steps:
+      - name: Listen for Slack Approval
+        run: |
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN }}" \
+                      -H "Content-Type: application/json" \
+                      -X POST https://slack.com/api/conversations.history?channel=${{ env.CHANNEL_ID }})
+          echo "Slack Response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -q "approve_cleanup"; then
+            echo "Cleanup Approved. Triggering Lambda."
+            aws lambda invoke --function-name ${{ env.LAMBDA_FUNCTION_NAME }} response.json
+          else
+            echo "Cleanup Declined. No action taken."
+          fi
