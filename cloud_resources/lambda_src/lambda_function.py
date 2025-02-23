@@ -3,7 +3,7 @@ import os
 import logging
 import urllib.parse
 import boto3
-from lambda_src.cloud_cleanup import cleanup_resources, generate_report, send_slack_notification
+from cloud_cleanup import cleanup_resources, generate_report, send_slack_notification
 
 # Configure logging
 logger = logging.getLogger()
