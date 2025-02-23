@@ -73,7 +73,8 @@ jobs:
                     "text": "Approve Cleanup",
                     "style": "primary",
                     "value": "approve_cleanup",
-                    "action_id": "approve_cleanup"
+                    "action_id": "approve_cleanup",
+                    "url": "https://07lvxp3tt5.execute-api.us-east-1.amazonaws.com/prod/trigger-lambda"
                   },
                   {
                     "type": "button",
@@ -105,3 +106,14 @@ jobs:
           else
             echo "Cleanup Declined. No action taken."
           fi
+
+      - name: Debug Slack Response
+        run: |
+          RESPONSE=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "channel": "${{ env.CHANNEL_ID }}",
+              "text": "Triggering Lambda function..."
+            }' https://slack.com/api/chat.postMessage)
+
+          echo "Slack Response: $RESPONSE"
