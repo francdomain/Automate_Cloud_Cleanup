@@ -12,13 +12,12 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 
 resource "aws_apigatewayv2_route" "default_route" {
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /trigger-lambda"
+  route_key = "ANY /trigger-lambda" # Allow all HTTP methods
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
 resource "aws_apigatewayv2_stage" "default_stage" {
-  api_id = aws_apigatewayv2_api.http_api.id
-  # name        = "$default"
-  name        = "prod"
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
   auto_deploy = true
 }
