@@ -19,3 +19,7 @@ output "api_gateway_url" {
   value       = aws_apigatewayv2_api.http_api.api_endpoint
   description = "API Gateway URL to use as the Slack interaction endpoint"
 }
+
+output "http_api_id" {
+  value = aws_apigatewayv2_api.http_api.id
+}
