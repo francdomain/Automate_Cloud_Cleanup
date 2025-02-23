@@ -22,9 +22,10 @@ resource "aws_lambda_function" "slack_interaction_handler" {
 }
 
 resource "aws_lambda_permission" "allow_apigateway" {
-  statement_id  = "AllowExecutionFromAPIGateway"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.slack_interaction_handler.arn
+  statement_id = "AllowExecutionFromAPIGateway"
+  action       = "lambda:InvokeFunction"
+  # function_name = aws_lambda_function.slack_interaction_handler.arn
+  function_name = aws_lambda_function.slack_interaction_handler.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
