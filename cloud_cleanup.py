@@ -100,6 +100,10 @@ def trigger_lambda():
     )
     return response
 
+
+if not SLACK_WEBHOOK_URL:
+    raise ValueError("SLACK_WEBHOOK_URL is not set. Check GitHub Secrets.")
+
 def send_slack_notification():
     """Send Slack message with Approve/Decline buttons."""
     payload = {
@@ -124,7 +128,8 @@ def send_slack_notification():
             }
         ]
     }
-    requests.post(SLACK_WEBHOOK_URL, json=payload)
+    response = requests.post(SLACK_WEBHOOK_URL, json=payload)
+    response.raise_for_status()
 
 def main():
     """Main execution logic."""
