@@ -44,7 +44,7 @@ jobs:
         env:
           DRY_RUN: "True"
         run: |
-          python cloud_cleanup.py
+          python cloud_resources/lambda_src/cloud_cleanup.py
 
       - name: Generate Cleanup Report
         run: |
