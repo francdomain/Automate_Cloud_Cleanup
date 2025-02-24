@@ -74,7 +74,7 @@ jobs:
                     "style": "primary",
                     "value": "approve_cleanup",
                     "action_id": "approve_cleanup",
-                    "url": "https://zuayb1urce.execute-api.us-east-1.amazonaws.com/trigger-lambda"
+                    "url": "https://8a15mxze89.execute-api.us-east-1.amazonaws.com/trigger-lambda"
                   },
                   {
                     "type": "button",
