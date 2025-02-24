@@ -17,6 +17,7 @@ jobs:
       CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
       LAMBDA_FUNCTION_NAME: "CloudCleanupLambda"
       AWS_REGION: "us-east-1"
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  # Add this line
 
     steps:
       - name: Checkout Repository
