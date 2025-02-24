@@ -25,3 +25,8 @@ variable "repo_name" {
   description = "GitHub Repository Name"
   type        = string
 }
+
+variable "slack_webhook_url" {
+  type = string
+
+}

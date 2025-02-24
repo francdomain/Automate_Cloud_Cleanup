@@ -107,6 +107,10 @@ jobs:
             echo "Cleanup Declined. No action taken."
           fi
 
+      - name: Debug Environment Variables
+        run: |
+          echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}"
+
       - name: Debug Slack Response
         run: |
           RESPONSE=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \

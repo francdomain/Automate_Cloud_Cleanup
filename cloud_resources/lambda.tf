@@ -40,6 +40,12 @@ resource "aws_lambda_function" "slack_interaction_handler" {
   runtime          = "python3.11"
   filename         = data.archive_file.lambda_function_zip.output_path
   source_code_hash = data.archive_file.lambda_function_zip.output_base64sha256
+
+  environment {
+    variables = {
+      SLACK_WEBHOOK_URL = var.slack_webhook_url
+    }
+  }
 }
 resource "aws_lambda_permission" "allow_apigateway" {
   statement_id = "AllowExecutionFromAPIGateway"
