@@ -1,3 +1,15 @@
+resource "null_resource" "package_lambda" {
+  provisioner "local-exec" {
+    command = <<EOT
+      pip install -r lambda_src/requirements.txt -t lambda_src/
+    EOT
+  }
+
+  triggers = {
+    always_run = timestamp() # Forces re-run on every apply
+  }
+}
+
 # data "archive_file" "lambda_function_zip" {
 #   type        = "zip"
 #   source_file = "${path.module}/lambda_function.py" # For single file
@@ -8,6 +20,8 @@ data "archive_file" "lambda_function_zip" {
   type        = "zip"
   source_dir  = "${path.module}/lambda_src" # Include multiple files from a directory
   output_path = "${path.module}/lambda_function.zip"
+
+  depends_on = [null_resource.package_lambda]
 }
 
 # resource "aws_lambda_function" "slack_interaction_handler" {
