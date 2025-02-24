@@ -14,11 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
       CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
       LAMBDA_FUNCTION_NAME: "CloudCleanupLambda"
       AWS_REGION: "us-east-1"
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
       - name: Checkout Repository
@@ -58,35 +56,41 @@ jobs:
 
       - name: Send Slack Notification with Approval Buttons
         run: |
-          curl -X POST -H "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN }}" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "channel": "${{ env.CHANNEL_ID }}",
-            "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
-            "attachments": [
-              {
-                "fallback": "Approve or Decline the cleanup.",
-                "text": "Choose an action:",
-                "actions": [
-                  {
-                    "type": "button",
-                    "text": "Approve Cleanup",
-                    "style": "primary",
-                    "value": "approve_cleanup",
-                    "action_id": "approve_cleanup",
-                    "url": "https://8a15mxze89.execute-api.us-east-1.amazonaws.com/trigger-lambda"
-                  },
-                  {
-                    "type": "button",
-                    "text": "Decline Cleanup",
-                    "style": "danger",
-                    "value": "decline_cleanup",
-                    "action_id": "decline_cleanup"
-                  }
-                ]
-              }
-            ]
-          }' https://slack.com/api/chat.postMessage
+          RESPONSE=$(curl -s -X POST -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d '{
+              "channel": "${{ env.CHANNEL_ID }}",
+              "text": "The Cloud Cleanup dry-run report is ready. Approve to perform the actual cleanup.",
+              "attachments": [
+                {
+                  "fallback": "Approve or Decline the cleanup.",
+                  "text": "Choose an action:",
+                  "actions": [
+                    {
+                      "type": "button",
+                      "text": "Approve Cleanup",
+                      "style": "primary",
+                      "value": "approve_cleanup",
+                      "action_id": "approve_cleanup"
+                    },
+                    {
+                      "type": "button",
+                      "text": "Decline Cleanup",
+                      "style": "danger",
+                      "value": "decline_cleanup",
+                      "action_id": "decline_cleanup"
+                    }
+                  ]
+                }
+              ]
+            }' https://slack.com/api/chat.postMessage)
+
+          echo "Slack API Response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -q '"ok":false'; then
+            echo "Error sending Slack notification!"
+            exit 1
+          fi
 
   handle-slack-response:
     runs-on: ubuntu-latest
@@ -95,29 +99,28 @@ jobs:
     steps:
       - name: Listen for Slack Approval
         run: |
-          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN }}" \
-                      -H "Content-Type: application/json" \
-                      -X POST https://slack.com/api/conversations.history?channel=${{ env.CHANNEL_ID }})
+          RESPONSE=$(curl -s -X GET -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "https://slack.com/api/conversations.history?channel=${{ env.CHANNEL_ID }}")
+
           echo "Slack Response: $RESPONSE"
 
-          if echo "$RESPONSE" | grep -q "approve_cleanup"; then
+          ACTION=$(echo "$RESPONSE" | jq -r '.messages[].attachments[].actions[].value' 2>/dev/null || echo "")
+
+          if [[ "$ACTION" == "approve_cleanup" ]]; then
             echo "Cleanup Approved. Triggering Lambda."
             aws lambda invoke --function-name ${{ env.LAMBDA_FUNCTION_NAME }} response.json
           else
             echo "Cleanup Declined. No action taken."
           fi
 
-      - name: Debug Environment Variables
-        run: |
-          echo "SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}"
-
       - name: Debug Slack Response
         run: |
-          RESPONSE=$(curl -X POST -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
-            -H "Content-Type: application/json" \
+          RESPONSE=$(curl -s -X POST -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+            -H "Content-Type: application/json; charset=utf-8" \
             -d '{
               "channel": "${{ env.CHANNEL_ID }}",
               "text": "Triggering Lambda function..."
             }' https://slack.com/api/chat.postMessage)
 
-          echo "Slack Response: $RESPONSE"
+          echo "Slack Debug Response: $RESPONSE"

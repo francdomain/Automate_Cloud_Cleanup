@@ -3,6 +3,7 @@ import os
 import logging
 import urllib.parse
 import boto3
+import asyncio
 from cloud_cleanup import cleanup_resources, generate_report, send_slack_notification
 
 # Configure logging
@@ -15,7 +16,6 @@ def lambda_handler(event, context):
         cloudwatch_client = boto3.client('cloudwatch')
         dry_run = os.getenv('DRY_RUN', 'True').lower() == 'true'
 
-        # Log incoming request
         logger.info(f"Received event: {json.dumps(event)}")
 
         # Extract and parse Slack request payload
@@ -37,20 +37,9 @@ def lambda_handler(event, context):
                 return {"statusCode": 400, "body": json.dumps({"error": "No action received"})}
 
             action = actions[0].get("value")
-            if action == "approve":
-                # Perform cleanup operations
-                idle_instances, instance_reasons, unattached_volumes, volume_reasons = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
-                report_filename = generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons)
-                send_slack_notification()
 
-                return {
-                    "statusCode": 200,
-                    "body": json.dumps({
-                        "message": "Cleanup executed",
-                        "report": report_filename,
-                        "request_id": context.aws_request_id
-                    })
-                }
+            if action == "approve":
+                return execute_cleanup(ec2_client, cloudwatch_client, dry_run, context)
             elif action == "decline":
                 return {"statusCode": 200, "body": json.dumps({"text": "Cleanup declined. No action taken."})}
 
@@ -62,6 +51,36 @@ def lambda_handler(event, context):
             "statusCode": 500,
             "body": json.dumps({
                 "error": "Internal Server Error",
+                "message": str(e),
+                "request_id": context.aws_request_id
+            })
+        }
+
+def execute_cleanup(ec2_client, cloudwatch_client, dry_run, context):
+    try:
+        logger.info("Starting cleanup process")
+
+        idle_instances, instance_reasons, unattached_volumes, volume_reasons = cleanup_resources(ec2_client, cloudwatch_client, dry_run)
+        report_filename = generate_report(idle_instances, instance_reasons, unattached_volumes, volume_reasons)
+
+        # Send Slack notification asynchronously
+        asyncio.run(send_slack_notification())
+
+        logger.info("Cleanup process completed")
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "message": "Cleanup executed successfully",
+                "report": report_filename,
+                "request_id": context.aws_request_id
+            })
+        }
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}", exc_info=True)
+        return {
+            "statusCode": 500,
+            "body": json.dumps({
+                "error": "Failed to execute cleanup",
                 "message": str(e),
                 "request_id": context.aws_request_id
             })
